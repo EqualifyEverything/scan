@@ -28,5 +28,5 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
           BUILDKIT_INLINE_CACHE: 1
-          DOCKER_USERNAME: ${{ github.actor }}
-          DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          DOCKER_USERNAME: ${{ secrets.GH_ACTION_USER }}
+          DOCKER_PASSWORD: ${{ secrets.GH_ACTION_TOKEN }}
