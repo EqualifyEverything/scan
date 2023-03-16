@@ -1,32 +1,41 @@
-name: 🖼️ Management
+name: 🏗️📤 Build and publish 🐳 images
 
 on:
   push:
-    branches: [main]
+    branches: ["release"]
 
 env:
-  IMAGE_NAME: scan
-  REPO_NAME: equalifyapp
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
-    name: 🏗️ and Push 🐳 Image
+  build-and-push-image:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      - name: Checkout Repository
-        id: checkout
-        uses: actions/checkout@v2
+      - name: 👀📦 Checkout repository.
+        uses: actions/checkout@v3
 
-      - name: 🏗️ 🐳 Image
-        id: build
-        uses: docker/build-push-action@v2
+      - name: 🔑📦 Login to container registry
+        uses: docker/login-action@v2.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔍📝 Extract metadata (🏷️, 🏷️) for 🐳
+        id: meta
+        uses: docker/metadata-action@v4.3.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: 🏗️📤 Build and push 🐳 image
+        uses: docker/build-push-action@v4.0.0
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:latest
-        env:
-          DOCKER_BUILDKIT: 1
-          BUILDKIT_INLINE_CACHE: 1
-          DOCKER_USERNAME: ${{ secrets.GH_ACTION_USER }}
-          DOCKER_PASSWORD: ${{ secrets.GH_ACTION_TOKEN }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
