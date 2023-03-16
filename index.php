@@ -12,7 +12,7 @@ $url = $_GET["url"];
 exec(
   "axe " .
     $url .
-    ' --chromedriver-path $(which chromedriver) --chrome-options="no-sandbox" --stdout',
+    ' --chromedriver-path /usr/bin/google-chrome --chrome-options="no-sandbox" --stdout',
   $output,
   $retval
 );
