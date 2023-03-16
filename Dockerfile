@@ -14,6 +14,11 @@ RUN apt-get update && apt-get install -y google-chrome-stable
 RUN wget https://chromedriver.storage.googleapis.com/111.0.5563.64/chromedriver_linux64.zip && unzip chromedriver_linux64.zip && mv chromedriver /usr/local/bin/
 RUN chmod +x /usr/local/bin/chromedriver
 
+# Set listen address & server name
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf && \
+sed -i 's/Listen 80/Listen 0.0.0.0:80/' /etc/apache2/ports.conf && \
+sed -i 's/VirtualHost \*:80/VirtualHost \*:\*/' /etc/apache2/sites-available/000-default.conf
+
 # Install axe-cli
 RUN npm install -g @axe-core/cli
 
