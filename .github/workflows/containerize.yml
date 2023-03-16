@@ -14,6 +14,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
+        id: checkout
         uses: actions/checkout@v2
 
       - name: 🏗️ 🐳 Image
