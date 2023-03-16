@@ -6,6 +6,7 @@ on:
 
 env:
   IMAGE_NAME: axecli
+  REPO_NAME: equalifyapp
 
 jobs:
   build-and-push:
@@ -20,7 +21,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}/${{ env.IMAGE_NAME }}:latest
+          tags: ghcr.io/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:latest
         env:
           DOCKER_BUILDKIT: 1
           BUILDKIT_INLINE_CACHE: 1
