@@ -1,17 +1,11 @@
 from flask import Flask
-from endpoints.axe import axe_blueprint
-# Import other blueprints here
+from endpoints.axe import axe_bp
+from endpoints.other import other_bp
 
-app = Flask(__name__)
+EqualifyApp = Flask(__name__)
 
-app.register_blueprint(axe_blueprint)
-# Register other blueprints here
-
-# Enable logging
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-# ... (API key validation and other configurations)
+EqualifyApp.register_blueprint(axe_bp)
+EqualifyApp.register_blueprint(other_bp)
 
 if __name__ == '__main__':
-    app.run()
+    EqualifyApp.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8083)))
