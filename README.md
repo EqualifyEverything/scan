@@ -23,3 +23,8 @@ After you setup a LEMP web server..
 
 - axe-core kept saying that I had the wrong version of chromedriver installed. I had the correct version. I had to add the flag `--chromedriver-path /usr/local/bin/chromedriver` to the axe-core call.
 - axe-core had an error related to the chromedriver sanbox settings. I had to add `--chrome-options="no-sandbox` to the axe-core call.
+
+---
+
+`cd /Users/Shared/GitHub/EqualifyApp/scans`
+'python3 scans/axe.py'
