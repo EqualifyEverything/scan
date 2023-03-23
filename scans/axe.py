@@ -7,6 +7,26 @@ with open('maps/axe.json') as f:
 
 app = Flask(__name__)
 
+def process_response(response_dict, mapping):
+    processed = {}
+    for key, value in response_dict.items():
+        if isinstance(value, dict):
+            for inner_key, inner_value in value.items():
+                combined_key = f"{key}.{inner_key}"
+                new_key = mapping.get(combined_key)
+                if new_key:
+                    processed[new_key] = inner_value
+                else:
+                    processed[combined_key] = inner_value
+        else:
+            new_key = mapping.get(key)
+            if new_key:
+                processed[new_key] = value
+            else:
+                processed[key] = value
+    return processed
+
+
 @app.route('/axe')
 def axe_scan():
     url = request.args.get('url')
@@ -14,34 +34,19 @@ def axe_scan():
     output = subprocess.check_output(cmd, shell=True)
     response = json.loads(output.decode('utf-8'))
 
+    # Check if the response is a list and get the first item
+    if isinstance(response, list) and len(response) > 0:
+        response = response[0]
+
     # Define header mapping
     with open('maps/axe.json') as f:
         header_mapping = json.load(f)
 
-    # Transform headers
-    for item in response:
-        # Keep only mapped fields
-        item_copy = {}
-        for key, value in item.items():
-            new_key = header_mapping.get(key)
-            if new_key:
-                item_copy[new_key] = value
-        item.clear()
-        item.update(item_copy)
-
-        # Flatten nested fields
-        for field in ['testEngine', 'testEnvironment']:
-            flattened_fields = {}
-            for key, value in item.items():
-                if key.startswith(field):
-                    new_key = key.replace(f"{field}.", "")
-                    flattened_fields[new_key] = value
-            item.update(flattened_fields)
-            for key in flattened_fields:
-                del item[f"{field}.{key}"]
+    # Process response
+    transformed_response = process_response(response, header_mapping)
 
     # Return transformed response
-    return jsonify(response)
+    return jsonify(transformed_response)
 
 
 if __name__ == '__main__':
