@@ -35,6 +35,7 @@ jobs:
           tags: |
             type=sha,enable=true,prefix={{branch}}-,suffix=,format=short
             type=raw,value=latest,priority=100,enable={{is_default_branch}}
+            type=raw,value={{branch}}-latest,priority=300,enable={{is_not_default_branch}}
 
       - name: 🏗️📤 Build and push 🐳 image
         uses: docker/build-push-action@v4.0.0
