@@ -26,5 +26,5 @@ After you setup a LEMP web server..
 
 ---
 
-`cd /Users/Shared/GitHub/EqualifyApp/scans`
+`cd /Users/Shared/GitHub/Orgs/EqualifyApp/scans`
 'python3 scans/axe.py'
