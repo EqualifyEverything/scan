@@ -16,27 +16,30 @@ db_name = "a11y"
 conn = psycopg2.connect(host=db_host, port=db_port, user=db_user, password=db_password, database=db_name)
 cur = conn.cursor()
 
-# Get domains to scrape
-cur.execute("SELECT domain FROM meta.domains WHERE crawl = TRUE")
-domains = cur.fetchall()
+# Get a single domain to scrape
+cur.execute("SELECT domain FROM meta.domains WHERE crawl = TRUE AND active = TRUE ORDER BY created_at LIMIT 1")
+domain = cur.fetchone()
+if not domain:
+    # No active domains left to crawl
+    exit()
+
+# Update crawl status for selected domain
+cur.execute("UPDATE meta.domains SET crawl = FALSE, last_crawl_at = now() WHERE domain = %s", (domain[0],))
 
 # Create the Spider
 class A11ySpider(Spider):
     name = "A11ySpider"
 
-
     # Where to Start?
     def start_requests(self):
-        for domain in domains:
-            # Generate UUID
-            python_uuid = uuid.uuid4()
+        # Generate UUID
+        python_uuid = uuid.uuid4()
 
-            # Insert Domain and UUID
-            cur.execute("INSERT INTO results.crawls (domain, python_uuid) VALUES (%s, %s)", (domain[0], str(python_uuid)))
+        # Insert Domain and UUID
+        cur.execute("INSERT INTO results.crawls (domain, python_uuid) VALUES (%s, %s)", (domain[0], str(python_uuid)))
 
-            url = "https://" + domain[0]
-           # time.sleep(10)     # Enable to add a 10 second delay between domains
-            yield Request(url, callback=self.parse, meta={"domain": domain[0], "python_uuid": python_uuid})
+        url = "https://" + domain[0]
+        yield Request(url, callback=self.parse, meta={"domain": domain[0], "python_uuid": python_uuid})
 
     # How are we parsing this?
     def parse(self, response):
@@ -51,30 +54,38 @@ class A11ySpider(Spider):
             self.logger.warning(f"Failed to parse {response.url} with error: {e}")
             return
 
-            # Insert link to Postgres
-            for link in links:
-                if link is not None:
-                    # filter out urls with "#" and remove trailing "/"
-                    link = re.sub(r"#.*$", "", link).rstrip("/")
-                    if not re.search(r'tel:|mailto:| ', link):
-                        if not link.startswith("http"):
+        # Insert link to Postgres
+        for link in links:
+            if link is not None:
+                # filter out urls with "#" and remove trailing "/"
+                link = re.sub(r"#.*$", "", link).rstrip("/")
+                if not re.search(r'tel:|mailto:| ', link):
+                    if not link.startswith("http"):
+                        if link.startswith("/"):
                             link = f"https://{domain}{link}"
-                        cur.execute("""
-                            INSERT INTO staging.urls (url, python_uuid, source_url)
-                            VALUES (%s, %s, %s)
-                            ON CONFLICT (url) DO NOTHING
-                        """, (link, str(python_uuid), source_url))
+                        else:
+                            link = f"https://{domain}/{link}"
+                    cur.execute("""
+                        INSERT INTO staging.urls (url, python_uuid, source_url)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (url) DO NOTHING
+                    """, (link, str(python_uuid), source_url))
 
-                        conn.commit()
-                        # self.logger.info(f"Inserted {link} into staging.urls")
+                    conn.commit()
+                    self.logger.info(f"Inserted {link} into staging.urls")
 
-                        # Follow links to other pages on the same domain
-                        if link.startswith(f"https://{domain}"):
-                            #time.sleep(1) # wait for 1 second before crawling the next page on the same domain
-                            yield Request(link, callback=self.parse, meta={"domain": domain, "python_uuid": python_uuid, "source_url": source_url})
+                    # Follow links to other pages on the same domain
+                    if link.startswith(f"https://{domain}"):
+                        #time.sleep(1) # wait for 1 second before crawling the next page on the same domain
+                        yield Request(link, callback=self.parse, meta={"domain": domain, "python_uuid": python_uuid, "source_url": source_url})
 
-                        # Wait before crawling the next off-site link
-                        #time.sleep(1)
+        # Update crawl status for completed crawl
+        cur.execute("UPDATE results.crawls SET complete = TRUE WHERE python_uuid = %s", (str(response.meta["python_uuid"]),))
+
+        conn.commit()
+
+
+
 
 # Crawler Settings
 # Mote info:    https://docs.scrapy.org/en/latest/topics/settings.html
