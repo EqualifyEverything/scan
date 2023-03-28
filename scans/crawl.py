@@ -1,6 +1,7 @@
 import psycopg2
 import uuid
 import re
+import time
 from scrapy import Spider, Request
 from scrapy.crawler import CrawlerProcess
 
@@ -23,6 +24,7 @@ domains = cur.fetchall()
 class A11ySpider(Spider):
     name = "A11ySpider"
 
+
     # Where to Start?
     def start_requests(self):
         for domain in domains:
@@ -33,6 +35,7 @@ class A11ySpider(Spider):
             cur.execute("INSERT INTO results.crawls (domain, python_uuid) VALUES (%s, %s)", (domain[0], str(python_uuid)))
 
             url = "https://" + domain[0]
+           # time.sleep(10)     # Enable to add a 10 second delay between domains
             yield Request(url, callback=self.parse, meta={"domain": domain[0], "python_uuid": python_uuid})
 
     # How are we parsing this?
@@ -67,16 +70,29 @@ class A11ySpider(Spider):
 
                     # Follow links to other pages on the same domain
                     if link.startswith(f"https://{domain}"):
+                        #time.sleep(1) # wait for 1 second before crawling the next page on the same domain
                         yield Request(link, callback=self.parse, meta={"domain": domain, "python_uuid": python_uuid, "source_url": source_url})
 
+                    # Wait before crawling the next off-site link
+                    #time.sleep(1)
+
 # Crawler Settings
+# Mote info:    https://docs.scrapy.org/en/latest/topics/settings.html
 process = CrawlerProcess(settings={
-    "ROBOTSTXT_OBEY": True,
-    "AUTOTHROTTLE_ENABLED": True,
-    "AUTOTHROTTLE_START_DELAY": 1,
-    "AUTOTHROTTLE_TARGET_CONCURRENCY": 1,
-    "LOG_LEVEL": "WARNING",
-    "LOG_ENABLED": True
+    "BOT_NAME": "A11yCheck Bot",            # Name of Bot
+    "DOWNLOAD_DELAY": 1,                    # Seconds to delay between requests
+    "RANDOMIZE_DOWNLOAD_DELAY": True,       # Randomize DOWNLOAD_DELAY between 0.5 & 1.5x
+    "COOKIES_ENABLED": False,               # Disable cookies
+    "CONCURRENT_REQUESTS": 50,              # Maximum concurrent requests
+    "HTTPCACHE_ENABLED": False,             # Disable caching
+    "CONCURRENT_REQUESTS_PER_DOMAIN": 16,   # Maximum concurrent requests per domain
+    "ROBOTSTXT_OBEY": True,                 # Obey robots.txt rules
+    "AUTOTHROTTLE_ENABLED": True,           # Enable AutoThrottle extension
+    "AUTOTHROTTLE_START_DELAY": 5,          # Initial delay before AutoThrottle starts adjusting the delay
+    "AUTOTHROTTLE_TARGET_CONCURRENCY": 3,   # Target concurrency for AutoThrottle
+    "LOG_LEVEL": "WARNING",                 # Logging level
+    "LOG_ENABLED": True                     # Enable logging
 })
+
 process.crawl(A11ySpider)
 process.start()
