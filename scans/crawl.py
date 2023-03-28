@@ -51,45 +51,53 @@ class A11ySpider(Spider):
             self.logger.warning(f"Failed to parse {response.url} with error: {e}")
             return
 
-        # Insert link to Postgres
-        for link in links:
-            if link is not None:
-                # filter out urls with "#" and remove trailing "/"
-                link = re.sub(r"#.*$", "", link).rstrip("/")
-                if not re.search(r'tel:|mailto:| ', link):
-                    if not link.startswith("http"):
-                        link = f"https://{domain}{link}"
-                    cur.execute("""
-                        INSERT INTO staging.urls (url, python_uuid, source_url)
-                        VALUES (%s, %s, %s)
-                        ON CONFLICT (url) DO NOTHING
-                    """, (link, str(python_uuid), source_url))
+            # Insert link to Postgres
+            for link in links:
+                if link is not None:
+                    # filter out urls with "#" and remove trailing "/"
+                    link = re.sub(r"#.*$", "", link).rstrip("/")
+                    if not re.search(r'tel:|mailto:| ', link):
+                        if not link.startswith("http"):
+                            link = f"https://{domain}{link}"
+                        cur.execute("""
+                            INSERT INTO staging.urls (url, python_uuid, source_url)
+                            VALUES (%s, %s, %s)
+                            ON CONFLICT (url) DO NOTHING
+                        """, (link, str(python_uuid), source_url))
 
-                    conn.commit()
-                    # self.logger.info(f"Inserted {link} into staging.urls")
+                        conn.commit()
+                        # self.logger.info(f"Inserted {link} into staging.urls")
 
-                    # Follow links to other pages on the same domain
-                    if link.startswith(f"https://{domain}"):
-                        #time.sleep(1) # wait for 1 second before crawling the next page on the same domain
-                        yield Request(link, callback=self.parse, meta={"domain": domain, "python_uuid": python_uuid, "source_url": source_url})
+                        # Follow links to other pages on the same domain
+                        if link.startswith(f"https://{domain}"):
+                            #time.sleep(1) # wait for 1 second before crawling the next page on the same domain
+                            yield Request(link, callback=self.parse, meta={"domain": domain, "python_uuid": python_uuid, "source_url": source_url})
 
-                    # Wait before crawling the next off-site link
-                    #time.sleep(1)
+                        # Wait before crawling the next off-site link
+                        #time.sleep(1)
 
 # Crawler Settings
 # Mote info:    https://docs.scrapy.org/en/latest/topics/settings.html
+#
+#       Testing out Autothrottle: https://docs.scrapy.org/en/latest/topics/autothrottle.html#autothrottle-algorithm
+#
 process = CrawlerProcess(settings={
     "BOT_NAME": "A11yCheck Bot",            # Name of Bot
-    "DOWNLOAD_DELAY": 1,                    # Seconds to delay between requests
-    "RANDOMIZE_DOWNLOAD_DELAY": True,       # Randomize DOWNLOAD_DELAY between 0.5 & 1.5x
+    "DOWNLOAD_DELAY": 1,                # Minimum seconds to delay between requests
+    "RANDOMIZE_DOWNLOAD_DELAY": True,      # Randomize DOWNLOAD_DELAY between 0.5 & 1.5x
     "COOKIES_ENABLED": False,               # Disable cookies
-    "CONCURRENT_REQUESTS": 50,              # Maximum concurrent requests
-    "HTTPCACHE_ENABLED": False,             # Disable caching
+    "CONCURRENT_ITEMS": 50,                # Number of concurrent items (per response) to process
+    "CONCURRENT_REQUESTS": 16,              # Maximum concurrent requests
+    "DEPTH_LIMIT": 3,                        # Max depth that will be crawled. 0 for no limit
+    "DNSCACHE_ENABLED": True,               # Enable DNS in-memory cache
+    "DNS_TIMEOUT": 60,                      # Timeout for processing DNS queries
+    "HTTPCACHE_ENABLED": True,              # Disable caching
     "CONCURRENT_REQUESTS_PER_DOMAIN": 16,   # Maximum concurrent requests per domain
     "ROBOTSTXT_OBEY": True,                 # Obey robots.txt rules
     "AUTOTHROTTLE_ENABLED": True,           # Enable AutoThrottle extension
     "AUTOTHROTTLE_START_DELAY": 5,          # Initial delay before AutoThrottle starts adjusting the delay
-    "AUTOTHROTTLE_TARGET_CONCURRENCY": 3,   # Target concurrency for AutoThrottle
+    "AUTOTHROTTLE_TARGET_CONCURRENCY": 1,   # Target concurrency for AutoThrottle
+    "AUTOTHROTTLE_DEBUG": True,             # Debug logs on Autothrottle
     "LOG_LEVEL": "WARNING",                 # Logging level
     "LOG_ENABLED": True                     # Enable logging
 })
