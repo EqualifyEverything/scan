@@ -6,6 +6,8 @@ import logging
 from lxml import etree
 from scrapy import Spider, Request
 from scrapy.crawler import CrawlerProcess
+from twisted.internet.error import DNSLookupError, TCPTimedOutError
+
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +36,7 @@ cur.execute("UPDATE meta.domains SET crawl = FALSE, last_crawl_at = now() WHERE 
 class A11ySpider(Spider):
     name = "A11ySpider"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.domain_crawled = False
-        self.num_pages_crawled = 0
-        self.num_pages_total = 0
-
+    # Lets ROLL
     def start_requests(self):
         # Generate UUID
         python_uuid = uuid.uuid4()
@@ -50,8 +47,10 @@ class A11ySpider(Spider):
         self.logger.info(f"Created crawl for {domain} with python_uuid of: {python_uuid}")
 
         url = "https://" + domain[0]
-        yield Request(url, callback=self.parse, meta={"domain": domain[0], "python_uuid": python_uuid}, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'})
+        yield Request(url, callback=self.parse, meta={"domain": domain[0], "python_uuid": python_uuid}, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}, errback=self.errback)
 
+
+    # Parse All The Things!
     def parse(self, response):
         domain = response.meta["domain"] # Get the domain from meta.domains
         python_uuid = response.meta["python_uuid"] # Get the python_uuid
@@ -100,45 +99,28 @@ class A11ySpider(Spider):
                         """, (link, str(python_uuid), source_url))
                         conn.commit()  # commit the transaction
                         logger.debug(f"URL: +1 URL to staging.urls table: {link}")
-                        # Update page count
-                        self.num_pages_total += 1
+
 
                         # Follow links to other pages on the same domain
                         if link.startswith(f"https://{domain}"):
                             yield Request(link, callback=self.parse, meta={"domain": domain, "python_uuid": python_uuid, "source_url": source_url})
 
-        # Update crawl status for this python_uuid
-        cur.execute("SELECT COUNT(DISTINCT url) FROM staging.urls WHERE python_uuid = %s", (str(python_uuid),))
-        urls_count = cur.fetchone()[0]
-
-        cur.execute("SELECT COUNT(DISTINCT url) FROM staging.bad_urls WHERE python_uuid = %s", (str(python_uuid),))
-        bad_urls_count = cur.fetchone()[0]
-
-        cur.execute("SELECT COUNT(DISTINCT url) FROM staging.doc_urls WHERE python_uuid = %s", (str(python_uuid),))
-        doc_urls_count = cur.fetchone()[0]
-
-        cur.execute("SELECT COUNT(DISTINCT url) FROM staging.image_urls WHERE python_uuid = %s", (str(python_uuid),))
-        image_urls_count = cur.fetchone()[0]
-
-        self.num_pages_total = urls_count + bad_urls_count + doc_urls_count + image_urls_count
-        self.domain_crawled = True
-
-
-        # Check if all pages for the domain have been crawled
-        if self.num_pages_crawled == self.num_pages_total:
+        # Check if the response is a Request object and it didn't follow any link
+        if isinstance(response, Request) and not response.follows:
             cur.execute("UPDATE results.crawls SET complete = TRUE WHERE python_uuid = %s", (str(python_uuid),))
+            cur.execute("UPDATE meta.domains SET crawl = TRUE, last_crawl_at = now(), last_crawl_uuid = %s WHERE domain = %s", (str(python_uuid), domain[0]))
             conn.commit()
             logger.info(f"Crawl Complete for: {domain} ")
+            cur.execute("SELECT process_staging_urls()")
+            logger.info(f"Staging URLs Processed, Moving to Next Domain :)")
 
-
-
-    # Define errback function
+    # Bringing errBack!
     def errback(self, failure):
         url = failure.request.url
         source_url = failure.request.meta["source_url"]
         python_uuid = str(failure.request.meta["python_uuid"])
 
-        # Add failed URLs to the staging.bad_urls table
+        # Add naughty URLs to the staging.bad_urls table
         if not url.startswith("http"):
             if url.startswith("/"):
                 url = f"https://{domain}{url}"
@@ -152,7 +134,7 @@ class A11ySpider(Spider):
         conn.commit()  # commit the transaction
         logger.warning(f"Bad URL: Added 1 URL to staging.bad_urls table: {link}")
 
-        # Follow links to other pages on the same domain
+        # Stalk links to other pages on the same domain
         if url.startswith(f"https://{domain}"):
             yield Request(url, callback=self.parse, meta={"domain": domain, "python_uuid": python_uuid, "source_url": source_url}, errback=self.errback)
 
@@ -181,7 +163,7 @@ process = CrawlerProcess(settings={
     "AUTOTHROTTLE_TARGET_CONCURRENCY": 2,   # Target concurrency for AutoThrottle
     # Logging Settings
     "AUTOTHROTTLE_DEBUG": False,             # Debug logs on Autothrottle
-    "LOG_LEVEL": "INFO",                   # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    "LOG_LEVEL": "DEBUG",                   # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     #"LOG_FILE": "logs/crawl.log",          # Where to save lovs
     "LOG_ENABLED": True                     # Enable logging
 })
