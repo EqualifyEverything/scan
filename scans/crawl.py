@@ -163,7 +163,7 @@ process = CrawlerProcess(settings={
     "AUTOTHROTTLE_TARGET_CONCURRENCY": 2,   # Target concurrency for AutoThrottle
     # Logging Settings
     "AUTOTHROTTLE_DEBUG": False,             # Debug logs on Autothrottle
-    "LOG_LEVEL": "DEBUG",                   # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    "LOG_LEVEL": "INFO",                   # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     #"LOG_FILE": "logs/crawl.log",          # Where to save lovs
     "LOG_ENABLED": True                     # Enable logging
 })

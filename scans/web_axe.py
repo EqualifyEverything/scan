@@ -9,11 +9,11 @@ import uuid
 
 # Configure logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Create console handler and set level to debug
 ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.DEBUG)
+ch.setLevel(logging.INFO)
 
 # Create formatter
 formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s')
@@ -108,6 +108,73 @@ def axe_scan():
                       env_user_agent, env_window_height, env_window_width, reporter,
                       runner_name, scanned_at, url, result[1], pyaxe_uuid))
                 conn.commit()
+
+                # Insert items into the items table
+                items = ["inapplicable", "incomplete", "passes", "violations"]
+                for item in items:
+                    for sub_item in response_data[item]:
+                        # Generate piwho_uuid UUID
+                        piwho_uuid = str(uuid.uuid4())
+
+                        # Insert item data into the results.items table
+                        cur.execute("""
+                            INSERT INTO results.items (
+                                "type", description, help, help_url, area, impact, tags, pyaxe_uuid, piwho_uuid
+                            ) VALUES (
+                                %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            )
+                        """, (item, sub_item["description"], sub_item["help"], sub_item["helpUrl"], sub_item["id"], sub_item["impact"], sub_item["tags"], pyaxe_uuid, piwho_uuid))
+                        conn.commit()
+
+                        # If the sub_item has nodes data, insert it into the results.nodes table
+                        if sub_item["nodes"]:
+                            for node in sub_item["nodes"]:
+                                logger.debug(f"Node target: {node.get('target')} ")
+                                logger.debug(f"Node All: {node.get('any')} ")
+                                logger.debug(f"Node All: {node.get('all')} ")
+                                logger.debug(f"Node None: {node.get('none')} ")
+                                target = node.get("target")
+                                if target:
+                                    target_str = str(target[0])
+                                else:
+                                    target_str = None
+
+                                # Flatten the nested dictionary in 'data'
+                                data_str = None
+                                if node.get("data"):
+                                    data_str = json.dumps(node.get("data"))
+
+                                # Insert the node into the results.nodes table
+                                cur.execute("""
+                                    INSERT INTO results.nodes (
+                                        html, impact, target, data, pyaxe_uuid, piwho_uuid
+                                    ) VALUES (
+                                        %s, %s, %s, %s, %s, %s
+                                    )
+                                """, (node.get("html"), node.get("impact"), target_str, data_str, pyaxe_uuid, piwho_uuid))
+                                conn.commit()
+
+                                # Insert the subnode into the results.subnodes table, if any
+                                for node_type in ["any", "all", "none"]:
+                                    subnodes = node.get(node_type)
+                                    if subnodes:
+                                        for subnode in subnodes:
+                                            subnode_data_str = None
+                                            if subnode.get("data"):
+                                                subnode_data_str = json.dumps(subnode.get("data"))
+                                            cur.execute("""
+                                                INSERT INTO results.subnodes (
+                                                    nodey_uuid, data, id, impact, message, pyaxe_uuid, piwho_uuid, node_type
+                                                ) VALUES (
+                                                    %s, %s, %s, %s, %s, %s, %s, %s
+                                                )
+                                            """, (str(uuid.uuid4()), subnode_data_str, subnode.get("id"), subnode.get("impact"), subnode.get("message"), pyaxe_uuid, piwho_uuid, node_type))
+                                            conn.commit()
+
+
+
+
+
                 logger.info(f"COMPLETE: axe scan of {url} ")
                 cur.execute("""
                     UPDATE staging.urls
@@ -115,6 +182,7 @@ def axe_scan():
                     WHERE id = %s
                 """, (result[1],))
                 conn.commit()
+
 
 
         else:
