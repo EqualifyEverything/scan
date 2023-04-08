@@ -2,3 +2,4 @@
 .DS_Store
 .scrapy
 logs/*
+__pycache__
