@@ -8,7 +8,7 @@ from data.access import connection
 
 def execute_update(query, params=None, fetchone=True):
  #  logger.debug(f'🗄️   🔧 Executing query: {query}')
-   logger.debug(f'🗄️   🔧 Query parameters: {params}... ')
+ #  logger.debug(f'🗄️   🔧 Query parameters: {params}... ')
 
    # Connect to the database
    conn = connection()
@@ -43,28 +43,14 @@ def execute_update(query, params=None, fetchone=True):
    return result
 
 
-def add_tech_results(url_id, tech_apps):
-    logger.info(f'🗄️   🔧 Adding Tech Results')
-    query = """
-        UPDATE staging.urls
-        set techs = %s,
-           tech_checked_at = %s
-        WHERE id = %s
-    """
-    try:
-        execute_update(query, (json.dumps(tech_apps), datetime.now(timezone.utc), url_id))
-        logger.debug(f'🗄️   🔧 UPDATED: {url_id}')
-        return True
-    except Exception as e:  # Add 'Exception as e' to capture the exception details
-        logger.error(f'🗄️   🔧 Failed to complete update: {url_id} - Error: {e}')  # Display the error message
-        return False
 
 
 def tech_check_failure(url_id):
    logger.info(f'🗄️   🔧 Logging Tech Check Failure')
    query = """
-       UPDATE staging.urls
-       SET tech_check_failure = %s
+       UPDATE targets.urls
+       SET active_scan_tech = False,
+         scanned_at_tech = %s
        WHERE id = %s
    """
    try:
@@ -74,3 +60,37 @@ def tech_check_failure(url_id):
    except Exception as e:  # Add 'Exception as e' to capture the exception details
        logger.error(f'🗄️   🔧 Failed to Mark Failure: {url_id} - Error: {e}')  # Display the error message
        return False
+
+def mark_url_axe_scanned(url_id):
+
+    query = """
+        UPDATE targets.urls
+        SET scanned_at_axe = %s
+        WHERE id = %s;
+   """
+    try:
+       execute_update(query, (datetime.now(timezone.utc), url_id))
+       logger.debug(f'🗄️   🔧 Marked {url_id} as Scanned')
+       return True
+    except Exception as e:  # Add 'Exception as e' to capture the exception details
+      logger.error(f'🗄️   🔧 Failed to mark as Scanned: {url_id} - Error: {e}')  # Display the error message
+      return False
+
+
+def tech_mark_url(url_id):
+   query = """
+      UPDATE targets.urls
+         SET scanned_at_tech = %s
+         WHERE id = %s;
+   """
+   try:
+       execute_update(query, (datetime.now(timezone.utc), url_id))
+       logger.debug(f'🗄️   🔧 Marked {url_id} as Teched')
+       return True
+   except Exception as e:  # Add 'Exception as e' to capture the exception details
+      logger.error(f'🗄️   🔧 Failed to mark as Teched: {url_id} - Error: {e}')  # Display the error message
+      return False
+
+
+
+

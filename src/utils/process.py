@@ -7,7 +7,7 @@ def run_tech_check(target, url_id):
     # Run Tech Check
     logger.debug(f'Running tech check for URL ID: {url_id} and target: {target}')
     response = requests.get(f"https://techcheck.beltway.cloud/extract?url={target}")
-    logger.debug(f'From Process: {response} ')
+    # logger.debug(f'From Process: {response} ')
 
     if response.status_code == 200:
         logger.debug(f'From Process: {response.json()} ')
@@ -49,7 +49,7 @@ def scan_axe_it(target):
 
     # Check response status code
     if response.status_code == 200:
-        logger.debug(f'From Process: {response.json()} ')
+     #  logger.debug(f'From Process: {response.json()} ')
         # Return the response and no error
         return response.json(), None
 

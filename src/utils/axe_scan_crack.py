@@ -14,11 +14,11 @@ def process_items(url_id, scan_event_id, items, item_type):
             "type": item_type,
             "impact": item["impact"],
             "tags": item["tags"],
-            "area": item["area"],
+            "area": item["id"],
             "nodes": nodes
         }
 
-        if not insert_axe_items(scan_event_id, url_id, item_type, item["area"], item["impact"], item["tags"]):
+        if not insert_axe_items(scan_event_id, url_id, item_type, item["id"], item["impact"], item["tags"]):
             success = False
             logger.info("No nodes, items processed successfully")
 

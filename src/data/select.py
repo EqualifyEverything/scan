@@ -38,13 +38,30 @@ def execute_select(query, params=None, fetchone=True):
 # Queries
 def next_tech_url():
     query = """
-        SELECT url AS "target",
-            id as "url_id"
-        FROM staging.urls
-        WHERE techs IS NULL
-        AND tech_check_failure is NULL
-        AND gsa_site_scan_url_id IS NOT null
-        ORDER BY RANDOM() LIMIT 1;
+        WITH random_rows AS (
+            SELECT url AS "target",
+                   id AS "url_id",
+                   ROW_NUMBER() OVER (ORDER BY scanned_at_tech NULLS FIRST, created_at) AS row_num
+            FROM targets.urls
+            WHERE active_main IS TRUE AND active_scan_tech IS TRUE
+            LIMIT 100
+            OFFSET floor(random() * 100)
+        ), latest_within_5_days AS (
+            SELECT url AS "target",
+                   id AS "url_id"
+            FROM targets.urls
+            WHERE active_main IS TRUE AND active_scan_tech IS TRUE
+                  AND (scanned_at_tech IS NULL OR scanned_at_tech < NOW() - INTERVAL '5 days')
+            ORDER BY scanned_at_tech DESC NULLS LAST
+            LIMIT 1
+        )
+        SELECT "target", "url_id"
+        FROM random_rows
+        UNION ALL
+        SELECT "target", "url_id"
+        FROM latest_within_5_days
+        WHERE NOT EXISTS (SELECT 1 FROM random_rows)
+        LIMIT 1;
     """
     result = execute_select(query)
     if result:
@@ -52,17 +69,35 @@ def next_tech_url():
         logger.info(f'🗄️🔍 Next Tech Check URL: {target}')
         return target, url_id
     else:
-        logger.error(f'🗄️🔍 Unable to Tech Check URL  - Error: {e}')
+        logger.error(f'🗄️🔍 Unable to Tech Check URL')
         return None, None
 
 def next_axe_url():
     query = """
-      SELECT url as "target", id as "url_id"
-      FROM targets.urls
-      WHERE active_main is True AND active_scan_axe is True
-      ORDER BY scanned_at_axe NULLS FIRST, created_at
-      LIMIT 100
-      OFFSET floor(random() * 100);
+      WITH random_rows AS (
+            SELECT url AS "target",
+                   id AS "url_id",
+                   ROW_NUMBER() OVER (ORDER BY scanned_at_axe NULLS FIRST, created_at) AS row_num
+            FROM targets.urls
+            WHERE active_main IS TRUE AND active_scan_axe IS TRUE
+            LIMIT 100
+            OFFSET floor(random() * 100)
+        ), latest_within_5_days AS (
+            SELECT url AS "target",
+                   id AS "url_id"
+            FROM targets.urls
+            WHERE active_main IS TRUE AND active_scan_axe IS TRUE
+                  AND (scanned_at_axe IS NULL OR scanned_at_axe < NOW() - INTERVAL '5 days')
+            ORDER BY scanned_at_axe DESC NULLS LAST
+            LIMIT 1
+        )
+        SELECT "target", "url_id"
+        FROM random_rows
+        UNION ALL
+        SELECT "target", "url_id"
+        FROM latest_within_5_days
+        WHERE NOT EXISTS (SELECT 1 FROM random_rows)
+        LIMIT 1;
    """
     result = execute_select(query)
     if result:

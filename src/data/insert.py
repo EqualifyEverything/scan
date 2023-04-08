@@ -6,7 +6,7 @@ from utils.watch import logger
 
 def execute_insert(query, params=None, fetchone=True):
     # logger.debug(f"🗄️✏️ Executing query: {query}")
-    logger.debug(f"🗄️✏️ Query parameters: {params}")
+    # logger.debug(f"🗄️✏️ Query parameters: {params}")
 
     # Connect to the database
     conn = connection()
@@ -112,15 +112,16 @@ def scan_axe_new_event(url_id, scanned_at, failure, axe_meta):
         VALUES (
             %s, %s, %s, %s
         )
-        RETURNING id as scan_event;
+        RETURNING id as scan_event_id;
     """
     try:
-        execute_insert(query, (url_id, scanned_at, failure, axe_meta))
+        result = execute_insert(query, (url_id, scanned_at, failure, axe_meta))
         # Log the Yay!
+        scan_event_id = result[0]
         logger.debug(f'🗄️  ✏️UPDATED: {url_id}')
-        return result
+        return scan_event_id
     except Exception as e:
-    logger.error(f'🗄️  ✏️Failed to complete update: {url_id} - Error: {e}')
+        logger.error(f'🗄️  ✏️Failed to complete update: {url_id} - Error: {e}')
     # Display the error message
     return False
 
@@ -198,7 +199,7 @@ def insert_axe_subnodes(scan_event_id, url_id, data, node_id, impact, message, n
         )
         RETURNING id as insert_id;
     """
-    result = execute_insert(query, (scan_event_id, url_id, node_id, data, impact, node_type, message, related_nodes))
+    result = execute_insert(query, (scan_event_id, url_id, node_id, json.dumps(data), impact, node_type, message, related_nodes))
     if result and isinstance(result[0], int):
         logger.info(f'Insert: New Subnode Added...')
         return True
@@ -207,5 +208,22 @@ def insert_axe_subnodes(scan_event_id, url_id, data, node_id, impact, message, n
         return False
 
 
-
-
+def add_tech_results(url_id, tech_apps):
+        logger.info(f'🗄️   ✏️ Adding Tech Results')
+        query = """
+            INSERT INTO results.tech_checks (
+                url_id,
+                techs
+            )
+            VALUES (
+                %s, %s
+            )
+            RETURNING url_id;
+        """
+        try:
+            execute_insert(query, (url_id, json.dumps(tech_apps)))
+            logger.debug(f'🗄️   ✏️ UPDATED: {url_id}')
+            return True
+        except Exception as e:  # Add 'Exception as e' to capture the exception details
+            logger.error(f'🗄️   ✏️ Failed to complete update: {url_id} - Error: {e}')  # Display the error message
+            return False

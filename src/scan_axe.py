@@ -1,13 +1,13 @@
 import sys
 import json
+import time
 from utils.watch import logger
 from data.select import next_axe_url
-from data.insert import scan_axe_new_event, record_axe_scan_results
+from data.insert import scan_axe_new_event
+from data.update import mark_url_axe_scanned
 from utils.process import scan_axe_it, scan_axe_process
 from utils.axe_scan_crack import process_items
 sys.path.append(".")
-
-# Emoji Key:
 
 
 # Roll the Axes
@@ -18,15 +18,15 @@ def axe_the_things():
 
     # Run Axe Check
     result, error = scan_axe_it(target)
+    # logger.debug(f'Scan_Axe: Result: {result}   ')
 
     # Bad Response
     if error:
         logger.debug(f"Error occurred: {error}")
-    # Run scan_axe_failure(url_id) if this fails and then move on
 
     # Good Response
     else:
-        logger.debug(f"Received response: {result}")
+        # logger.debug(f"Received response: {result}")
 
         # Process the response
         axe_scan_output = scan_axe_process(result)
@@ -42,7 +42,6 @@ def axe_the_things():
             if key in axe_scan_output:
                 axe_scan_output[new_key] = axe_scan_output.pop(key)
 
-
         # Map Response from Processing
         scanned_at = axe_scan_output["scanned_at"]
         inapplicable = axe_scan_output["inapplicable"]
@@ -50,50 +49,55 @@ def axe_the_things():
         passes = axe_scan_output["passes"]
         violations = axe_scan_output["violations"]
 
-        # Map the URL ID ...
-        url_id = url_id
-
-        # Vars are mapped :)
-
         # Create the scan event
-        # if response returned an error, set failure = true, else, False
         failure = False
         axe_meta = 1
-        scan_event_id = scan_axe_new_event(url_id, failure, axe_meta)
+        scan_event_id = scan_axe_new_event(url_id, scanned_at, failure, axe_meta)
 
         # Check if scan event returns an integer ie: id
         if not isinstance(scan_event_id, int):
-            # Log the error...
             logger.error(f'Scan Axe Not Int.')
-            # Sad :(
-
         else:
             logger.debug(f'Scan Event Recorded: {scan_event_id}')
-
-
-
 
             # Process the results and trigger the functions
             result_types = ["inapplicable", "incomplete", "passes", "violations"]
             for result_type in result_types:
                 results = axe_scan_output[result_type]
-                insert_axe_items(result_type, results)
-                insert_axe_nodes(result_type, results)
-                insert_axe_subnodes(result_type, results)
 
             logger.info("Processing completed successfully")
 
+           # with open("data.json", "r") as f:
+           #     data = json.load(f)
 
-    with open("data.json", "r") as f:
-        data = json.load(f)
+            processed_data = {
+                "inapplicable": process_items(url_id, scan_event_id, result["inapplicable"], "inapplicable"),
+                "incomplete": process_items(url_id, scan_event_id, result["incomplete"], "incomplete"),
+                "passes": process_items(url_id, scan_event_id, result["passes"], "passes"),
+                "violations": process_items(url_id, scan_event_id, result["violations"], "violations")
+            }
 
-    processed_data = {
-        "inapplicable": process_items(data["inapplicable"], "inapplicable"),
-        "incomplete": process_items(data["incomplete"], "incomplete"),
-        "passes": process_items(data["passes"], "passes"),
-        "violations": process_items(data["violations"], "violations")
-    }
+            with open("processed_data.json", "w") as f:
+                json.dump(processed_data, f, indent=2)
 
-    with open("processed_data.json", "w") as f:
-        json.dump(processed_data, f, indent=2)
+                # with open("processed_data.json", "w") as f:
+                # json.dump(processed_data, f, indent=2)
 
+            # Call the mark_url_axe_scanned function after processing is complete
+            mark_url_scanned_result = mark_url_axe_scanned(url_id)
+
+            if mark_url_scanned_result:
+                logger.info("URL marked as scanned successfully")
+            else:
+                logger.critical("Failed to mark URL as scanned")
+                time.sleep(60)
+
+
+def yeet_axes():
+    continue_scanning = True
+    while continue_scanning:
+        axe_the_things()
+
+
+if __name__ == '__main__':
+    yeet_axes()
