@@ -117,8 +117,8 @@ class A11ySpider(Spider):
     # Bringing errBack!
     def errback(self, failure):
         url = failure.request.url
-        source_url = failure.request.meta["source_url"]
         python_uuid = str(failure.request.meta["python_uuid"])
+        source_url = failure.request.meta.get("source_url")
 
         # Add naughty URLs to the staging.bad_urls table
         if not url.startswith("http"):

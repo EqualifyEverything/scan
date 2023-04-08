@@ -48,7 +48,7 @@ def axe_scan():
 
     while True:
         # Query the database for a URL to test
-        cur.execute("SELECT url, id as \"url_id\" FROM staging.urls WHERE active=true LIMIT 1")
+        cur.execute("SELECT url, id as \"url_id\" FROM staging.urls WHERE active=true AND gsa_site_scan_url_id IS NOT NULL ORDER BY Random() LIMIT 1")
         result = cur.fetchone()
 
         if result:
