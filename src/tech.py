@@ -7,6 +7,8 @@ from data.select import next_tech_url
 from data.update import tech_mark_url
 from data.insert import add_tech_results
 from utils.process import run_tech_check
+from multiprocessing import Process
+
 sys.path.append(".")
 
 def check_tech_main():
@@ -35,11 +37,23 @@ def check_tech_main():
         else:
             logger.info('From Tech: Bad pdate... ')
             # Wait for 5 seconds before the next iteration
-            time.sleep(5)
+            time.sleep(0)
 
-def tech_lets_go_again():
+def run_check_tech_main():
+    # Run Tech Check
     while True:
         check_tech_main()
 
 if __name__ == '__main__':
-    tech_lets_go_again()
+    num_processes = 30
+    processes = []
+
+    # Spawn multiple processes
+    for i in range(num_processes):
+        process = Process(target=run_check_tech_main)
+        processes.append(process)
+        process.start()
+
+    # Wait for all processes to finish
+    for process in processes:
+        process.join()

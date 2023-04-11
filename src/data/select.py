@@ -38,29 +38,17 @@ def execute_select(query, params=None, fetchone=True):
 # Queries
 def next_tech_url():
     query = """
-        WITH random_rows AS (
-            SELECT url AS "target",
-                   id AS "url_id",
-                   ROW_NUMBER() OVER (ORDER BY scanned_at_tech NULLS FIRST, created_at) AS row_num
-            FROM targets.urls
-            WHERE active_main IS TRUE AND active_scan_tech IS TRUE
-            LIMIT 100
-            OFFSET floor(random() * 100)
-        ), latest_within_5_days AS (
-            SELECT url AS "target",
-                   id AS "url_id"
-            FROM targets.urls
-            WHERE active_main IS TRUE AND active_scan_tech IS TRUE
-                  AND (scanned_at_tech IS NULL OR scanned_at_tech < NOW() - INTERVAL '5 days')
-            ORDER BY scanned_at_tech DESC NULLS LAST
-            LIMIT 1
-        )
-        SELECT "target", "url_id"
-        FROM random_rows
-        UNION ALL
-        SELECT "target", "url_id"
-        FROM latest_within_5_days
-        WHERE NOT EXISTS (SELECT 1 FROM random_rows)
+        SELECT url AS "target",
+               id AS "url_id"
+        FROM (
+          SELECT *
+          FROM targets.urls
+          WHERE active_main IS TRUE
+            AND active_scan_tech IS TRUE
+          ORDER BY created_at DESC
+          LIMIT 500
+        ) AS subquery
+        OFFSET floor(random() * 100)
         LIMIT 1;
     """
     result = execute_select(query)

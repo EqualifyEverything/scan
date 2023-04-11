@@ -3,39 +3,7 @@ import psycopg2
 
 # TODO Add connection pooling
 class connection:
-    """
-    A manager for the Postgres Database Connection
 
-    Attributes:
-        host (str): The hostname of the database server.
-        port (int): The port number to use for the database connection.
-        user (str): The username to use for the database connection.
-        password (str): The password to use for the database connection.
-        db_name (str): The name of the database to connect to.
-        conn (psycopg2.extensions.connection): The database connection object.
-        cur (psycopg2.extensions.cursor): The database cursor object.
-
-    Methods:
-        open()
-            Opens a new database connection using the connection parameters specified in the object.
-            Returns: None
-
-        close()
-            Closes the current database connection and cursor.
-            Returns: None
-
-        test()
-            Tests the database connection by executing a sample query.
-            Returns: bool: True if the query executes successfully, False otherwise.
-
-    Environment Variables:
-        DB_HOST (str): The hostname of the database server. Default is "localhost".
-        DB_PORT (int): The port number to use for the database connection. Default is 8432.
-        DB_USER (str): The username to use for the database connection. Default is "a11yPython".
-        DB_PASSWORD (str): The password to use for the database connection. Default is "SnakeInTheWeb".
-        DB_NAME (str): The name of the database to connect to. Default is "a11y".
-
-    """
 
     def __init__(self):
         """
@@ -92,3 +60,13 @@ class connection:
             return result == 1
         except:
             return False
+
+    def get_connection_params(self):
+        return {
+            'host': self.host,
+            'port': self.port,
+            'database': self.db_name,
+            'user': self.user,
+            'password': self.password,
+        }
+

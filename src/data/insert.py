@@ -3,23 +3,51 @@ import json
 import traceback
 from data.access import connection
 from utils.watch import logger
+from psycopg2.pool import SimpleConnectionPool
+
+# Set use_pooling to True to enable connection pooling
+use_pooling = True
+
+# Connection pool
+pool = None
+
+if use_pooling:
+    conn_params = connection().get_connection_params()
+    pool = SimpleConnectionPool(
+        minconn=1,
+        maxconn=10,
+        **conn_params
+    )
+
+
+
+def connection_pooling():
+    return pool.getconn()
+
+def release_pooling(conn):
+    pool.putconn(conn)
+
+# Normal Insert
 
 def execute_insert(query, params=None, fetchone=True):
     # logger.debug(f"🗄️✏️ Executing query: {query}")
     # logger.debug(f"🗄️✏️ Query parameters: {params}")
 
     # Connect to the database
-    conn = connection()
-    conn.open()
-    logger.debug("🗄️✏️ Database connection opened")
+    if use_pooling:
+        conn = connection_pooling()
+    else:
+        conn = connection()
+        conn.open()
+        logger.debug("🗄️✏️ Database connection opened")
 
     # Create a cursor
-    cur = conn.conn.cursor()
+    cur = conn.cursor() # Removed conn.
 
     try:
         # Execute the query
         cur.execute(query, params)
-        conn.conn.commit()
+        conn.commit()   # Removed conn.
         logger.info("🗄️✏️🟢 Query executed and committed")
 
         # Fetch the results if requested
@@ -33,13 +61,58 @@ def execute_insert(query, params=None, fetchone=True):
         logger.error(f"🗄️✏️ Error executing insert query: {e}\n{traceback.format_exc()}")
         result = None
 
+    # Close the cursor and connection
+    cur.close()
+    if use_pooling:
+        release_pooling(conn)
+    else:
+        conn.close()
+        logger.debug("🗄️✏️ Cursor and connection closed")
+
+    return result
+# # # # # # # # # #
+
+# Bulk Inserts
+
+def execute_bulk_insert(query, params_list, fetchone=True):
+    # Connect to the database
+    if use_pooling:
+        conn = connection_pooling()
+    else:
+        conn = connection()
+        conn.open()
+
+    # Create a cursor
+    cur = conn.cursor()
+
+    try:
+        # Execute the query
+        with conn:
+            cur.executemany(query, params_list)
+            logger.info("🗄️✏️🟢 Query executed and committed")
+
+        # Fetch the results if requested
+        result = None
+        if fetchone:
+            result = cur.fetchone() or ()  # return an empty tuple if None is returned
+        else:
+            result = cur.fetchall() or []  # return an empty list if None is returned
+            logger.debug(f'🗄️✏️ Fetched results: {result}')
+    except Exception as e:
+        logger.error(f"🗄️✏️ Error executing bulk insert query: {e}\n{traceback.format_exc()}")
+        result = None
 
     # Close the cursor and connection
     cur.close()
-    conn.close()
-    logger.debug("🗄️✏️ Cursor and connection closed")
+    if use_pooling:
+        release_pooling(conn)
+    else:
+        conn.close()
 
     return result
+
+
+
 
 #########################################################
 ## Queries
@@ -144,8 +217,8 @@ def insert_axe_items(scan_event_id, url_id, type, area, impact, tags):
         )
         RETURNING id as insert_id;
     """
-    result = execute_insert(query, (url_id, scan_event_id, type, area, impact, tags))
-    if result and isinstance(result[0], int):
+    result = execute_bulk_insert(query, [(scan_event_id, url_id, type, area, impact, tag) for tag in tags])
+    if result:
         logger.info(f'Insert: New Item Added...')
         return True
     else:
@@ -171,13 +244,14 @@ def insert_axe_nodes(scan_event_id, url_id, html, impact, target, data, failure_
         )
         RETURNING id as insert_id;
     """
-    result = execute_insert(query, (url_id, scan_event_id, html, impact, target, url_id, data, ))
+    result = execute_insert(query, (scan_event_id, url_id, html, impact, target, data, failure_summary))
     if result and isinstance(result[0], int):
         logger.info(f'Insert: New Node Added...')
         return True
     else:
         logger.error(f'Insert: Problem adding node...')
         return False
+
 
 # Add Subnodes
 def insert_axe_subnodes(scan_event_id, url_id, data, node_id, impact, message, node_type, related_nodes):
@@ -199,7 +273,7 @@ def insert_axe_subnodes(scan_event_id, url_id, data, node_id, impact, message, n
         )
         RETURNING id as insert_id;
     """
-    result = execute_insert(query, (scan_event_id, url_id, node_id, json.dumps(data), impact, node_type, message, related_nodes))
+    result = execute_insert(query, (scan_event_id, url_id, node_id, data, impact, node_type, message, related_nodes))
     if result and isinstance(result[0], int):
         logger.info(f'Insert: New Subnode Added...')
         return True
@@ -209,21 +283,21 @@ def insert_axe_subnodes(scan_event_id, url_id, data, node_id, impact, message, n
 
 
 def add_tech_results(url_id, tech_apps):
-        logger.info(f'🗄️   ✏️ Adding Tech Results')
-        query = """
-            INSERT INTO results.tech_checks (
-                url_id,
-                techs
-            )
-            VALUES (
-                %s, %s
-            )
-            RETURNING url_id;
-        """
-        try:
-            execute_insert(query, (url_id, json.dumps(tech_apps)))
-            logger.debug(f'🗄️   ✏️ UPDATED: {url_id}')
-            return True
-        except Exception as e:  # Add 'Exception as e' to capture the exception details
-            logger.error(f'🗄️   ✏️ Failed to complete update: {url_id} - Error: {e}')  # Display the error message
-            return False
+    logger.info(f'🗄️   ✏️ Adding Tech Results')
+    query = """
+        INSERT INTO results.tech_checks (
+            url_id,
+            techs
+        )
+        VALUES (
+            %s, %s
+        )
+        RETURNING url_id;
+    """
+    try:
+        execute_insert(query, (url_id, json.dumps(tech_apps)))
+        logger.debug(f'🗄️   ✏️ UPDATED: {url_id}')
+        return True
+    except Exception as e:  # Add 'Exception as e' to capture the exception details
+        logger.error(f'🗄️   ✏️ Failed to complete update: {url_id} - Error: {e}')  # Display the error message
+        return False
