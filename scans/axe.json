@@ -1,0 +1,13 @@
+{
+  "timestamp": "scanned_at",
+  "url": "url",
+  "testEngine.name": "engine_name",
+  "testEngine.version": "engine_version",
+  "testRunner.name": "runner_name",
+  "testEnvironment.userAgent": "env_user_agent",
+  "testEnvironment.windowWidth": "env_window_width",
+  "testEnvironment.windowHeight": "env_window_height",
+  "testEnvironment.orientationAngle": "env_orientation_angle",
+  "testEnvironment.orientationType": "env_orientation_type",
+  "toolOptions.reporter": "reporter"
+}

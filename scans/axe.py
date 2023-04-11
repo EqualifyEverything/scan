@@ -2,7 +2,7 @@ import json
 import subprocess
 from flask import Flask, request, jsonify
 
-with open('maps/axe.json') as f:
+with open('scans/axe.json') as f:
     header_mapping = json.load(f)
 
 app = Flask(__name__)
@@ -37,9 +37,9 @@ def axe_scan():
     # Check if the response is a list and get the first item
     if isinstance(response, list) and len(response) > 0:
         response = response[0]
-
+ # with open('../maps/axe.json') as f:
     # Define header mapping
-    with open('maps/axe.json') as f:
+    with open('scans/axe.json') as f:
         header_mapping = json.load(f)
 
     # Process response
