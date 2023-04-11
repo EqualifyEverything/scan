@@ -68,7 +68,7 @@ def process_subnodes(url_id, scan_event_id, subnodes, node_type):
             "node_type": node_type
         }
 
-        if not insert_axe_subnodes(scan_event_id, url_id, json.dumps(subnode["data"]), subnode["id"], subnode["impact"], subnode["message"], node_type, subnode["relatedNodes"]):  # Convert the dictionary to JSON string
+        if not insert_axe_subnodes(scan_event_id, url_id, json.dumps(subnode["data"]), subnode["id"], subnode["impact"], subnode["message"], node_type, subnode["relatedNodes"]):
             success = False
 
         processed_subnodes.append(processed_subnode)
