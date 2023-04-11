@@ -74,7 +74,7 @@ def execute_insert(query, params=None, fetchone=True):
 
 # Bulk Inserts
 
-def execute_bulk_insert(query, params_list, fetchone=True):
+def execute_bulk_insert(query, params_list):
     # Connect to the database
     if use_pooling:
         conn = connection_pooling()
@@ -90,17 +90,8 @@ def execute_bulk_insert(query, params_list, fetchone=True):
         with conn:
             cur.executemany(query, params_list)
             logger.info("🗄️✏️🟢 Query executed and committed")
-
-        # Fetch the results if requested
-        result = None
-        if fetchone:
-            result = cur.fetchone() or ()  # return an empty tuple if None is returned
-        else:
-            result = cur.fetchall() or []  # return an empty list if None is returned
-            logger.debug(f'🗄️✏️ Fetched results: {result}')
     except Exception as e:
         logger.error(f"🗄️✏️ Error executing bulk insert query: {e}\n{traceback.format_exc()}")
-        result = None
 
     # Close the cursor and connection
     cur.close()
@@ -108,8 +99,6 @@ def execute_bulk_insert(query, params_list, fetchone=True):
         release_pooling(conn)
     else:
         conn.close()
-
-    return result
 
 
 

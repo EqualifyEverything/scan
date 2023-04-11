@@ -1,10 +1,34 @@
 import psycopg2
 import json
-from datetime import datetime, timezone
-from utils.watch import logger
+import traceback
 from data.access import connection
+from utils.watch import logger
+from psycopg2.pool import SimpleConnectionPool
+from datetime import datetime, timezone
 
-# Log Emoji: 🗄️_🔧
+# Set use_pooling to True to enable connection pooling
+use_pooling = True
+
+# Connection pool
+pool = None
+
+if use_pooling:
+    conn_params = connection().get_connection_params()
+    pool = SimpleConnectionPool(
+        minconn=1,
+        maxconn=10,
+        **conn_params
+    )
+
+
+
+def connection_pooling():
+    return pool.getconn()
+
+def release_pooling(conn):
+    pool.putconn(conn)
+
+# Singular Updates
 
 def execute_update(query, params=None, fetchone=True):
  #  logger.debug(f'🗄️   🔧 Executing query: {query}')
@@ -43,7 +67,39 @@ def execute_update(query, params=None, fetchone=True):
    return result
 
 
+# # # # # # # # # #
 
+# Bulk Updates
+
+def execute_bulk_update(query, params_list):
+   # Connect to the database
+   if use_pooling:
+      conn = connection_pooling()
+   else:
+      conn = connection()
+      conn.open()
+
+   # Create a cursor
+   cur = conn.cursor()
+
+   try:
+      # Execute the query
+      with conn:
+          cur.executemany(query, params_list)
+          logger.info("🗄️✏️🟢 Query executed and committed")
+   except Exception as e:
+      logger.error(f"🗄️✏️ Error executing bulk insert query: {e}\n{traceback.format_exc()}")
+
+   # Close the cursor and connection
+   cur.close()
+   if use_pooling:
+      release_pooling(conn)
+   else:
+      conn.close()
+
+
+   #########################################################
+   ## Queries
 
 def tech_check_failure(url_id):
    logger.info(f'🗄️   🔧 Logging Tech Check Failure')
@@ -92,5 +148,18 @@ def tech_mark_url(url_id):
       return False
 
 
+def update_status_codes(url_status_list):
+       query = """
+           UPDATE targets.urls
+           SET uppies_code = %s, uppies_at = %s
+           WHERE id = %s;
+       """
+       now = datetime.now(timezone.utc)
+       params_list = [(status_code, now, url_id) for url_id, status_code in url_status_list]
 
-
+       try:
+           execute_bulk_update(query, params_list)
+           for url_id, status_code in url_status_list:
+               logger.debug(f'🗄️🔧 Updated status code for URL ID {url_id} to {status_code}')
+       except Exception as e:
+           logger.error(f'🗄️🔧 Failed to update status codes in bulk - Error: {e}')

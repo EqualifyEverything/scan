@@ -95,3 +95,56 @@ def next_axe_url():
     else:
         logger.error(f'🗄️🔍 Unable to Get URL - Error: {e}')
         return None, None
+
+
+def get_uppies_url():
+    query = """
+      SELECT url AS "target",
+         id AS "url_id"
+         FROM targets.urls
+         WHERE uppies_at IS NULL OR uppies_at IN (
+           SELECT uppies_at
+           FROM targets.urls
+            WHERE uppies_at IS NOT NULL
+            ORDER BY uppies_at ASC
+            LIMIT 200
+         )
+         ORDER BY uppies_at IS NULL DESC,
+            random()
+         LIMIT 1;
+   """
+    result = execute_select(query)
+    if result:
+        target, url_id = result
+        logger.debug(f'🗄️🔍 Next Uppies URL: {target}')
+        return target, url_id
+    else:
+        logger.error('🗄️🔍 Unable to Get Uppies URL')
+        return None, None
+
+
+def get_uppies_url_batch(batch_size):
+    query = """
+       SELECT url AS "target",
+           id AS "url_id"
+       FROM targets.urls
+       WHERE uppies_at IS NULL
+         OR uppies_at IN (
+           SELECT uppies_at
+           FROM targets.urls
+           WHERE uppies_at IS NOT NULL
+           ORDER BY uppies_at ASC
+           LIMIT 200
+       )
+       ORDER BY uppies_at IS NULL DESC,
+           random()
+       LIMIT %s;
+    """
+    result = execute_select(query, (batch_size,), fetchone=False)
+    if result:
+        urls = [(row[0], row[1]) for row in result]
+        #logger.debug(f"🗄️🔍 Next Uppies URLs: {urls}")
+        return urls
+    else:
+        logger.error('🗄️🔍 Unable to Get Uppies URLs')
+        return []
