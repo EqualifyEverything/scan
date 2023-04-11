@@ -2,6 +2,7 @@ import psycopg2
 import uuid
 import re
 import time
+
 import logging
 from lxml import etree
 from scrapy import Spider, Request
@@ -10,6 +11,7 @@ from twisted.internet.error import DNSLookupError, TCPTimedOutError
 
 
 logger = logging.getLogger(__name__)
+
 
 # Postgre connection info
 db_host = "localhost"
@@ -21,6 +23,7 @@ db_name = "a11y"
 # Connect to database
 conn = psycopg2.connect(host=db_host, port=db_port, user=db_user, password=db_password, database=db_name)
 cur = conn.cursor()
+
 
 # Get a single domain to scrape
 cur.execute("SELECT domain, last_crawl_at FROM meta.domains WHERE crawl = TRUE AND active = TRUE ORDER BY last_crawl_at ASC NULLS FIRST LIMIT 1")
@@ -59,9 +62,11 @@ class A11ySpider(Spider):
         # Get all links from the page
         links = response.xpath("//a/@href").getall()
 
+
         # Insert link to Postgres
         for link in links:
             if link is not None:
+
                 # Filter out URLs with "#" and remove trailing "/"
                 link = re.sub(r"#.*$", "", link).rstrip("/")
                 if not re.search(r'tel:|mailto:| ', link):
@@ -156,15 +161,18 @@ process = CrawlerProcess(settings={
     "DNSCACHE_ENABLED": True,               # Enable DNS in-memory cache
     "DNS_TIMEOUT": 60,                      # Timeout for processing DNS queries
     "HTTPCACHE_ENABLED": False,             # Enable or disable caching
+
     "CONCURRENT_REQUESTS_PER_DOMAIN": 16,   # Maximum concurrent requests per domain
     "ROBOTSTXT_OBEY": True,                 # Obey robots.txt rules
     "AUTOTHROTTLE_ENABLED": True,           # Enable AutoThrottle extension
     "AUTOTHROTTLE_START_DELAY": 5,          # Initial delay before AutoThrottle starts adjusting the delay
+
     "AUTOTHROTTLE_TARGET_CONCURRENCY": 2,   # Target concurrency for AutoThrottle
     # Logging Settings
     "AUTOTHROTTLE_DEBUG": False,             # Debug logs on Autothrottle
     "LOG_LEVEL": "INFO",                   # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
     #"LOG_FILE": "logs/crawl.log",          # Where to save lovs
+
     "LOG_ENABLED": True                     # Enable logging
 })
 
