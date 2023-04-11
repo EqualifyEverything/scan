@@ -40,13 +40,13 @@ def process_nodes(url_id, scan_event_id, nodes):
             "html": node["html"],
             "impact": node["impact"],
             "target": node["target"],
-            "data": node["data"],
+            "data": node.get("data", {}),  # Use .get() method with default value
             "all": subnodes_all,
             "any": subnodes_any,
             "none": subnodes_none
         }
 
-        if not insert_axe_nodes(scan_event_id, url_id, node["html"], node["impact"], node["target"], node["data"], None):
+        if not insert_axe_nodes(scan_event_id, url_id, node["html"], node["impact"], node["target"], json.dumps(node.get("data", {})), None):  # Convert the dictionary to JSON string
             success = False
             logger.info("No subnodes, nodes processed successfully")
 
@@ -68,7 +68,7 @@ def process_subnodes(url_id, scan_event_id, subnodes, node_type):
             "node_type": node_type
         }
 
-        if not insert_axe_subnodes(scan_event_id, url_id, subnode["data"], subnode["id"], subnode["impact"], subnode["message"], node_type, subnode["relatedNodes"]):
+        if not insert_axe_subnodes(scan_event_id, url_id, json.dumps(subnode["data"]), subnode["id"], subnode["impact"], subnode["message"], node_type, subnode["relatedNodes"]):  # Convert the dictionary to JSON string
             success = False
 
         processed_subnodes.append(processed_subnode)

@@ -9,11 +9,11 @@ logger = logging.getLogger("A11y🪵 ")
 
 # Check if logger already has handlers
 if not logger.hasHandlers():
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     # Create console handler and set level to info
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(logging.INFO)
 
     # Create formatter and add it to the handler
     formatter = logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] - %(message)s')

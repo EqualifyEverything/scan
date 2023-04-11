@@ -18,15 +18,3 @@ After you setup a LEMP web server..
 4. Start chromedriver: `chromedriver --port=4444`.
 5. Add [axe-equalify](https://github.com/bbertucc/axe-equalify) wherever you want to run the web service.
 6. Run `[yourdomain]/?url=[yoururl]`, replacing `[yourdomain]` and `[yoururl]`. You should see an output of axe.
-
-## Additional Notes
-
-- axe-core kept saying that I had the wrong version of chromedriver installed. I had the correct version. I had to add the flag `--chromedriver-path /usr/local/bin/chromedriver` to the axe-core call.
-- axe-core had an error related to the chromedriver sanbox settings. I had to add `--chrome-options="no-sandbox` to the axe-core call.
-
----
-
-`cd /Users/Shared/GitHub/Orgs/EqualifyApp/scan`
-'python3 scans/axe.py'
-
-cd /Users/Shared/GitHub/Orgs/EqualifyApp/scan
