@@ -45,6 +45,7 @@ def next_tech_url():
           FROM targets.urls
           WHERE active_main IS TRUE
             AND active_scan_tech IS TRUE
+            AND url NOT ilike '%?%'
           ORDER BY created_at DESC
           LIMIT 500
         ) AS subquery
@@ -68,7 +69,7 @@ def next_axe_url():
                    ROW_NUMBER() OVER (ORDER BY scanned_at_axe NULLS FIRST, created_at) AS row_num
             FROM targets.urls
             WHERE active_main IS TRUE AND active_scan_axe IS TRUE
-            LIMIT 100
+            LIMIT 500
             OFFSET floor(random() * 100)
         ), latest_within_5_days AS (
             SELECT url AS "target",
@@ -106,8 +107,9 @@ def get_uppies_url():
            SELECT uppies_at
            FROM targets.urls
             WHERE uppies_at IS NOT NULL
+            AND url NOT ilike '%?%'
             ORDER BY uppies_at ASC
-            LIMIT 200
+            LIMIT 500
          )
          ORDER BY uppies_at IS NULL DESC,
             random()
