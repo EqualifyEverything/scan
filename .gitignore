@@ -3,3 +3,4 @@
 .scrapy
 logs/*
 __pycache__
+SCRATCHES.md
