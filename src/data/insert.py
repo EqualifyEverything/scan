@@ -1,4 +1,4 @@
-import psycopg2
+import time
 import json
 import traceback
 from data.access import connection
@@ -20,19 +20,17 @@ if use_pooling:
     )
 
 
-
 def connection_pooling():
     return pool.getconn()
+
 
 def release_pooling(conn):
     pool.putconn(conn)
 
 # Normal Insert
 
-def execute_insert(query, params=None, fetchone=True):
-    # logger.debug(f"🗄️✏️ Executing query: {query}")
-    # logger.debug(f"🗄️✏️ Query parameters: {params}")
 
+def execute_insert(query, params=None, fetchone=True):
     # Connect to the database
     if use_pooling:
         conn = connection_pooling()
@@ -42,13 +40,12 @@ def execute_insert(query, params=None, fetchone=True):
         logger.debug("🗄️✏️ Database connection opened")
 
     # Create a cursor
-    cur = conn.cursor() # Removed conn.
-
+    cur = conn.cursor()
     try:
         # Execute the query
         cur.execute(query, params)
-        conn.commit()   # Removed conn.
-        logger.info("🗄️✏️🟢 Query executed and committed")
+        conn.commit()
+        logger.debug("🗄️✏️🟢 Query executed and committed")
 
         # Fetch the results if requested
         result = None
@@ -59,6 +56,8 @@ def execute_insert(query, params=None, fetchone=True):
             logger.debug(f'🗄️✏️ Fetched results: {result}')
     except Exception as e:
         logger.error(f"🗄️✏️ Error executing insert query: {e}\n{traceback.format_exc()}")
+        logger.error(f"🗄️✏️ Failed query: {query}")
+        logger.error(f"🗄️✏️ Failed query parameters: {params}")
         result = None
 
     # Close the cursor and connection
@@ -70,9 +69,11 @@ def execute_insert(query, params=None, fetchone=True):
         logger.debug("🗄️✏️ Cursor and connection closed")
 
     return result
+
 # # # # # # # # # #
 
 # Bulk Inserts
+
 
 def execute_bulk_insert(query, params_list):
     # Connect to the database
@@ -84,14 +85,17 @@ def execute_bulk_insert(query, params_list):
 
     # Create a cursor
     cur = conn.cursor()
-
+    rows_affected = 0
     try:
         # Execute the query
         with conn:
             cur.executemany(query, params_list)
-            logger.info("🗄️✏️🟢 Query executed and committed")
+            rows_affected = cur.rowcount  # Get the number of rows affected
+            logger.debug("🗄️✏️🟢 Query executed and committed")
     except Exception as e:
         logger.error(f"🗄️✏️ Error executing bulk insert query: {e}\n{traceback.format_exc()}")
+        logger.error(f"🗄️✏️ Failed query: {query}")
+        logger.error(f"🗄️✏️ Failed query parameters: {params_list}")
 
     # Close the cursor and connection
     cur.close()
@@ -100,16 +104,16 @@ def execute_bulk_insert(query, params_list):
     else:
         conn.close()
 
+    return rows_affected
 
 
-
-#########################################################
-## Queries
+# # # # # # # # # #
+# Queries
 
 
 # Add Tech Apps
 def record_tech_apps(name, description, icon, saas, website, pricing, scriptsrc, headers, cookies, dom, implies, cat_implies, js, requires, requires_cat, meta, cats):
-    logger.info(f'🗄️✏️ Adding {name} to Tech Apps ')
+    logger.debug(f'🗄️✏️ Adding {name} to Tech Apps ')
     query = """
         INSERT INTO ref.tech_apps (
             name,
@@ -202,17 +206,18 @@ def insert_axe_items(scan_event_id, url_id, type, area, impact, tags):
         )
         VALUES (
             %s, %s, %s,
-            %s, %s, %s
-        )
-        RETURNING id as insert_id;
+            %s, %s, %s::text[]
+        );
     """
-    result = execute_bulk_insert(query, [(scan_event_id, url_id, type, area, impact, tag) for tag in tags])
-    if result:
-        logger.info(f'Insert: New Item Added...')
+    rows_affected = execute_bulk_insert(query, [(scan_event_id, url_id, type, area, impact, tags)])
+    if rows_affected == 1:
+        logger.debug(f'Insert: 🟢 New Item Added...')
         return True
     else:
-        logger.error(f'Insert: Problem adding item...')
+        logger.error(f'Insert: Problem adding item. Values: scan_event_id={scan_event_id}, url_id={url_id}, type={type}, area={area}, impact={impact}, tags={tags}')
+        time.sleep(5)
         return False
+
 
 # Add Nodes
 def insert_axe_nodes(scan_event_id, url_id, html, impact, target, data, failure_summary):
@@ -230,16 +235,14 @@ def insert_axe_nodes(scan_event_id, url_id, html, impact, target, data, failure_
         VALUES (
             %s, %s, %s, %s,
             %s, %s, %s
-        )
-        RETURNING id as insert_id;
+        );
     """
-    result = execute_insert(query, (scan_event_id, url_id, html, impact, target, data, failure_summary))
-    if result and isinstance(result[0], int):
-        logger.info(f'Insert: New Node Added...')
-        return True
+    rows_affected = execute_bulk_insert(query, [(scan_event_id, url_id, html, impact, target, data, failure_summary)])
+    if rows_affected == 1:
+        logger.debug(f'Insert: 🟢 New Node Added...')
     else:
-        logger.error(f'Insert: Problem adding node...')
-        return False
+        logger.error(f'Insert: Problem adding node. Values: scan_event_id={scan_event_id}, url_id={url_id}, html={html}, impact={impact}, target={target}, data={data}, failure_summary={failure_summary}')
+        time.sleep(5)
 
 
 # Add Subnodes
@@ -259,20 +262,19 @@ def insert_axe_subnodes(scan_event_id, url_id, data, node_id, impact, message, n
         VALUES (
             %s, %s, %s, %s,
             %s, %s, %s, %s
-        )
-        RETURNING id as insert_id;
+        );
     """
-    result = execute_insert(query, (scan_event_id, url_id, node_id, data, impact, node_type, message, related_nodes))
-    if result and isinstance(result[0], int):
-        logger.info(f'Insert: New Subnode Added...')
-        return True
+    related_nodes_json = json.dumps(related_nodes)
+    rows_affected = execute_bulk_insert(query, [(scan_event_id, url_id, node_id, data, impact, node_type, message, related_nodes_json)])
+    if rows_affected == 1:
+        logger.debug(f'Insert: 🟢 New Subnode Added...')
     else:
-        logger.error(f'Insert: Problem adding subnode...')
-        return False
+        logger.error(f'Insert: Problem adding subnode. Values: scan_event_id={scan_event_id}, url_id={url_id}, node_id={node_id}, data={data}, impact={impact}, node_type={node_type}, message={message}, related_nodes={related_nodes}')
+        time.sleep(5)
 
 
 def add_tech_results(url_id, tech_apps):
-    logger.info(f'🗄️   ✏️ Adding Tech Results')
+    logger.debug('🗄️   ✏️ Adding Tech Results')
     query = """
         INSERT INTO results.tech_checks (
             url_id,
