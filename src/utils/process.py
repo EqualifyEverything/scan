@@ -77,25 +77,3 @@ def scan_axe_process(response):
     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -45,6 +45,7 @@ def next_tech_url():
           FROM targets.urls
           WHERE active_main IS TRUE
             AND active_scan_tech IS TRUE
+            AND url NOT ilike '%?%'
           ORDER BY created_at DESC
           LIMIT 500
         ) AS subquery
@@ -68,7 +69,7 @@ def next_axe_url():
                    ROW_NUMBER() OVER (ORDER BY scanned_at_axe NULLS FIRST, created_at) AS row_num
             FROM targets.urls
             WHERE active_main IS TRUE AND active_scan_axe IS TRUE
-            LIMIT 100
+            LIMIT 500
             OFFSET floor(random() * 100)
         ), latest_within_5_days AS (
             SELECT url AS "target",
@@ -95,3 +96,57 @@ def next_axe_url():
     else:
         logger.error(f'🗄️🔍 Unable to Get URL - Error: {e}')
         return None, None
+
+
+def get_uppies_url():
+    query = """
+      SELECT url AS "target",
+         id AS "url_id"
+         FROM targets.urls
+         WHERE uppies_at IS NULL OR uppies_at IN (
+           SELECT uppies_at
+           FROM targets.urls
+            WHERE uppies_at IS NOT NULL
+            AND url NOT ilike '%?%'
+            ORDER BY uppies_at ASC
+            LIMIT 500
+         )
+         ORDER BY uppies_at IS NULL DESC,
+            random()
+         LIMIT 1;
+   """
+    result = execute_select(query)
+    if result:
+        target, url_id = result
+        logger.debug(f'🗄️🔍 Next Uppies URL: {target}')
+        return target, url_id
+    else:
+        logger.error('🗄️🔍 Unable to Get Uppies URL')
+        return None, None
+
+
+def get_uppies_url_batch(batch_size):
+    query = """
+       SELECT url AS "target",
+           id AS "url_id"
+       FROM targets.urls
+       WHERE uppies_at IS NULL
+         OR uppies_at IN (
+           SELECT uppies_at
+           FROM targets.urls
+           WHERE uppies_at IS NOT NULL
+           ORDER BY uppies_at ASC
+           LIMIT 200
+       )
+       ORDER BY uppies_at IS NULL DESC,
+           random()
+       LIMIT %s;
+    """
+    result = execute_select(query, (batch_size,), fetchone=False)
+    if result:
+        urls = [(row[0], row[1]) for row in result]
+        #logger.debug(f"🗄️🔍 Next Uppies URLs: {urls}")
+        return urls
+    else:
+        logger.error('🗄️🔍 Unable to Get Uppies URLs')
+        return []

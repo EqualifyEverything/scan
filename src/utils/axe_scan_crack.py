@@ -20,7 +20,7 @@ def process_items(url_id, scan_event_id, items, item_type):
 
         if not insert_axe_items(scan_event_id, url_id, item_type, item["id"], item["impact"], item["tags"]):
             success = False
-            logger.info("No nodes, items processed successfully")
+            logger.debug("No nodes, items processed successfully")
 
     return success
 
@@ -48,7 +48,7 @@ def process_nodes(url_id, scan_event_id, nodes):
 
         if not insert_axe_nodes(scan_event_id, url_id, node["html"], node["impact"], node["target"], json.dumps(node.get("data", {})), None):  # Convert the dictionary to JSON string
             success = False
-            logger.info("No subnodes, nodes processed successfully")
+            logger.debug("No subnodes, nodes processed successfully")
 
         processed_nodes.append(processed_node)
 

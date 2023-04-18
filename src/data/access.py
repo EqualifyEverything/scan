@@ -9,7 +9,7 @@ class connection:
         """
         Initializes a new instance of the connection class with default connection parameters.
         """
-        self.host = os.environ.get("DB_HOST", "rightstuff.local")
+        self.host = os.environ.get("DB_HOST", "192.168.1.29")
         self.port = int(os.environ.get("DB_PORT", "5432"))
         self.user = os.environ.get("DB_USER", "a11ydata")
         self.password = os.environ.get("DB_PASSWORD", "a11yAllTheThings!")
