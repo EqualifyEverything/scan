@@ -35,9 +35,9 @@ def check_tech_main():
 
         # Update staging.urls with Tech Info
         else:
-            logger.info('From Tech: Bad pdate... ')
+            logger.error('From Tech: Bad pdate... ')
             # Wait for 5 seconds before the next iteration
-            time.sleep(0)
+            time.sleep(2)
 
 def run_check_tech_main():
     # Run Tech Check
